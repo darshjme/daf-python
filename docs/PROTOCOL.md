@@ -1,0 +1,11 @@
+# Command adapter protocol 1
+
+Both implementations accept a single JSON object of at most 1,048,576 input bytes. Unknown and duplicate fields are rejected. Normalized compact UTF-8 JSON including default values and null optional fields must also fit 1,048,576 bytes. `schema_version` is integer 1; `id` is nonblank and contains 1–128 UTF-8 bytes. `argv` has 1–4096 strings, a nonempty executable, and no NUL characters. Empty later arguments are valid. Optional `cwd` is an existing directory named by a nonempty string without NUL, resolved from the caller's directory; null means inherit. Optional `stdin` is UTF-8 text; null means empty input. Standard input always closes after feeding.
+
+`timeout_ms` is an integer in 1–3,600,000, default 300,000. `max_output_bytes` is an integer in 1–1,048,576, default 65,536, applied independently to each stream. Booleans do not count as integers. Retained bytes are decoded with UTF-8 replacement after truncation; the encoded output string can exceed the raw capture bound because a replacement character occupies three UTF-8 bytes.
+
+Results contain `schema_version`, `id`, `status`, `exit_code`, `stdout`, `stderr`, `stdout_truncated`, and `stderr_truncated`. Status is `succeeded`, `failed`, or `timed_out`. Success requires exit code zero. Spawn failure and timeout have null exit code. Platform-specific spawn errors, signal exit codes and process scheduling timings are not byte-identical across implementations.
+
+The deadline includes execution and pipe draining. A descendant holding inherited pipes can cause timeout after its parent exits. Truncation flags mean observed bytes exceeded the capture bound; false on timeout does not mean no later output was possible. Direct child termination is not process-tree containment. No shell is inserted, but a caller explicitly requesting a shell still requests shell execution. Request IDs correlate results, not authorize or deduplicate execution.
+
+The Python `execute_workflow` API adds 1–256 nodes, aggregate request JSON at most 1 MiB, and concurrency 1–32. It accepts unique IDs and unique dependencies, rejects cycles and unknown references, snapshots requests, invokes mandatory approval, and skips unsuccessful dependents. DJCODE's separate host bounds concurrency to 1–4 and has its own stricter message sizes; callers must choose limits within both layers.
